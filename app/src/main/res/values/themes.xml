@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.HelloEmulatorOpenglBug" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="Theme.AppCompat.NoTitleBar.Fullscreen" parent="Theme.AppCompat">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>
