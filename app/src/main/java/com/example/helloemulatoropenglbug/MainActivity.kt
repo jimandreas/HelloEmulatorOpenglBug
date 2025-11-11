@@ -1,16 +1,42 @@
 package com.example.helloemulatoropenglbug
 
+/*
+Testing GL rendering on Android 12.0 emulator [Pixel 4 API 31 Android 12.0 (Google Play)
+x86_x64 SPB3.210618.013], I found a little inconsistency in drawing behaviors.
+So I'd like to report it.
+
+When 3d model is drawn by using triangle-indices in ShortBuffer
+[GLES20#glDrawElements(int,int,int,java.nio.Buffer)], some parts of the model
+are not rendered. On earlier versions of Android OSs (e.g. Android 11.0, 9.0...),
+ the problem doesn't seem to occur. So this should be Android 12 specific problem
+ (See the screenshot attached).
+
+How to reproduce it:
+
+Create a new empty Kotlin project and replace MainActivity code with the following one.
+Then run it on Android 12 (and on earlier versions for comparisons).
+
+Additional Notes:
+
+• No crashes occur regarding this problem. No logcat message to be output.
+And the problem seems to appear independently of target sdk version (tested with both SDK30 and SDK31).
+
+• The same problem is observed even when C++/NDK is being used.
+So it might be due to some intrinsic GL implementation problem.
+
+    GLushort indices[] = {0, 1, 2, 3, 2, 1};
+    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, &indices[3]);
+    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_SHORT, &indices[0]);
+
+• Since I don't have other environments to test it, I don't know if the problem
+still exists even on the subsequent versions of Android 12(beta4+) or on real devices.
+ */
+
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,11 +46,8 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.ShortBuffer
-
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
-
-
 
 
 class MainActivity : AppCompatActivity(), GLSurfaceView.Renderer {
@@ -55,15 +78,7 @@ class MainActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         }.also { setContentView(it) }
     }
 
-    override fun onPause() {
-        view.onPause()
-        super.onPause()
-    }
 
-    override fun onResume() {
-        super.onResume()
-        view.onResume()
-    }
 
     override fun onSurfaceCreated(p0: GL10?, p1: EGLConfig?) {
 
@@ -120,11 +135,22 @@ class MainActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         )
         /* To make this work on Android12 too, we have to configure attrib pointer here again. */
         //GLES20.glVertexAttribPointer(attrib, 2, GLES20.GL_FLOAT, false, 2 * 4, 0)
+        //GLES20.glVertexAttribPointer(attrib, 2, GLES20.GL_FLOAT, false, 2 * 4, 0)
 
         indicesRaw.position(0) // Render step 2
         GLES20.glDrawElements(
             GLES20.GL_TRIANGLES, 3, GLES20.GL_UNSIGNED_SHORT, indicesRaw
         )
+    }
+
+    override fun onPause() {
+        view.onPause()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        view.onResume()
     }
 }
 /*
