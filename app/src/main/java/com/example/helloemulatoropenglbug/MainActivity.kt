@@ -60,7 +60,8 @@ class MainActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         rewind()
     }
     private var indicesRaw: ShortBuffer = genBufferLE(6 * 2).asShortBuffer().apply {
-        put(shortArrayOf(0, 1, 2, 3, 2, 1))
+//        put(shortArrayOf(0, 1, 2, 3, 2, 1))
+        put(shortArrayOf(0, 1, 2, 2, 1, 3))
         rewind()
     }
 
@@ -135,7 +136,7 @@ class MainActivity : AppCompatActivity(), GLSurfaceView.Renderer {
         )
         /* To make this work on Android12 too, we have to configure attrib pointer here again. */
         //GLES20.glVertexAttribPointer(attrib, 2, GLES20.GL_FLOAT, false, 2 * 4, 0)
-        //GLES20.glVertexAttribPointer(attrib, 2, GLES20.GL_FLOAT, false, 2 * 4, 0)
+        GLES20.glVertexAttribPointer(attrib, 2, GLES20.GL_FLOAT, false, 2 * 4, 0)
 
         indicesRaw.position(0) // Render step 2
         GLES20.glDrawElements(
