@@ -33,7 +33,6 @@ still exists even on the subsequent versions of Android 12(beta4+) or on real de
  */
 
 import android.opengl.GLES20
-import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
@@ -46,7 +45,7 @@ import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
 
-class MainActivity : AppCompatActivity(), GLSurfaceView.Renderer {
+class MainActivityOpengl20 : AppCompatActivity(), GLSurfaceView.Renderer {
     private lateinit var view: GLSurfaceView
     private var program: Int = 0
     private var attrib: Int = 0
@@ -67,40 +66,28 @@ class MainActivity : AppCompatActivity(), GLSurfaceView.Renderer {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        title = "GL Render: Android ${Build.VERSION.SDK_INT} (ES 3.0)"
+        title = "GL Render: Android ${Build.VERSION.SDK_INT}"
         view = GLSurfaceView(baseContext).apply {
-            setEGLContextClientVersion(3)  // Changed: Request ES 3.0
+            setEGLContextClientVersion(2)
             setEGLConfigChooser(8, 8, 8, 8, 16, 0)
-            setRenderer(this@MainActivity)
+            setRenderer(this@MainActivityOpengl20)
         }.also { setContentView(it) }
     }
 
-    private var vao: Int = 0  // New: VAO handle
-    private var ebo: Int = 0  // New: Element Buffer Object for indices
-
     override fun onSurfaceCreated(p0: GL10?, p1: EGLConfig?) {
-        // New: Generate VAO and EBO
-        vao = IntArray(1).also { GLES30.glGenVertexArrays(1, it, 0) }[0]
-        GLES30.glBindVertexArray(vao)
 
-        // Vertex buffer (unchanged, but now recorded in VAO)
+        // Initialize: Vertex buffer object
         verticesGL = IntArray(1).also { GLES20.glGenBuffers(1, it, 0) }[0]
         GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, verticesGL)
-        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, 4 * 2 * 4, verticesRaw, GLES20.GL_STATIC_DRAW)
+        GLES20.glBufferData(
+            GLES20.GL_ARRAY_BUFFER, 4 * 2 * 4, verticesRaw, GLES20.GL_STATIC_DRAW
+        )
 
-        // New: EBO for indices (GPU-side, avoids client-side bug)
-        ebo = IntArray(1).also { GLES20.glGenBuffers(1, it, 0) }[0]
-        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, ebo)
-        GLES20.glBufferData(GLES20.GL_ELEMENT_ARRAY_BUFFER, 6 * 2, indicesRaw, GLES20.GL_STATIC_DRAW)
-
-        // Updated: Shaders for GLSL ES 3.00
-        val sourceVertex = "#version 300 es\n" +  // New: Version declaration
-                "in vec2 vP; " +  // Changed: attribute -> in
+        // Initialize: Shader
+        val sourceVertex = "attribute vec2 vP; " +
                 "void main() { gl_Position = vec4(vP, 0.5, 1.0); }"
-        val sourceFragment = "#version 300 es\n" +  // New: Version
-                "precision mediump float; " +
-                "out vec4 FragColor; " +  // New: Output instead of gl_FragColor
-                "void main() { FragColor = vec4(1.0, 0.843, 0.0, 1.0); }"  // Changed: Assign to out
+        val sourceFragment = "precision mediump float; " +
+                "void main() { gl_FragColor = vec4(1.0, 0.843, 0.0, 1.0); }"
 
         program = GLES20.glCreateProgram().also {
             GLES20.glAttachShader(it,
@@ -116,13 +103,6 @@ class MainActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             GLES20.glLinkProgram(it)
             attrib = GLES20.glGetAttribLocation(it, "vP")
         }
-
-        // New: Configure attributes *inside* VAO binding (state recorded)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, verticesGL)
-        GLES20.glVertexAttribPointer(attrib, 2, GLES20.GL_FLOAT, false, 2 * 4, 0)
-        GLES20.glEnableVertexAttribArray(attrib)
-
-        GLES30.glBindVertexArray(0)  // Unbind VAO
     }
 
     override fun onSurfaceChanged(p0: GL10?, width: Int, height: Int) {
@@ -137,21 +117,25 @@ class MainActivity : AppCompatActivity(), GLSurfaceView.Renderer {
 
         GLES20.glUseProgram(program)
 
-        // New: Just bind VAO— all state (VBO, EBO, attributes) loads automatically!
-        GLES30.glBindVertexArray(vao)
+        // Setup indices(to be ShortBuffer) and vertices.
+        GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, GLES20.GL_ZERO)
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, verticesGL)
+        GLES20.glVertexAttribPointer(attrib, 2, GLES20.GL_FLOAT, false, 2 * 4, 0)
+        GLES20.glEnableVertexAttribArray(attrib)
 
-        // Changed: Single draw for full quad (no split, no client-side indices, no re-binding)
-        GLES20.glDrawElements(GLES20.GL_TRIANGLES, 6, GLES20.GL_UNSIGNED_SHORT, 0)
+        indicesRaw.position(3) // Render step 1
+        GLES20.glDrawElements(
+            GLES20.GL_TRIANGLES, 3, GLES20.GL_UNSIGNED_SHORT, indicesRaw
+        )
+        /* To make this work on Android12 too, we have to configure attrib pointer here again. */
+        //GLES20.glVertexAttribPointer(attrib, 2, GLES20.GL_FLOAT, false, 2 * 4, 0)
+        GLES20.glVertexAttribPointer(attrib, 2, GLES20.GL_FLOAT, false, 2 * 4, 0)
 
-        GLES30.glBindVertexArray(0)  // Unbind
+        indicesRaw.position(0) // Render step 2
+        GLES20.glDrawElements(
+            GLES20.GL_TRIANGLES, 3, GLES20.GL_UNSIGNED_SHORT, indicesRaw
+        )
     }
-
-    // Optional: Cleanup in onDestroy or onSurfaceDestroyed
-//    override fun onDetachedFromWindow() {
-//        GLES30.glDeleteVertexArrays(1, intArrayOf(vao))
-//        GLES20.glDeleteBuffers(1, intArrayOf(ebo))
-//        super.onDetachedFromWindow()
-//    }
 
     override fun onPause() {
         view.onPause()
